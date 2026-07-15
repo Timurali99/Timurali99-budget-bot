@@ -5,6 +5,11 @@ Telegram-бот учёта расходов и бюджета: логирова�
 лимиты бюджета с прогресс-баром и конвертер валют/крипты на живых курсах
 (open.er-api.com + CoinGecko, без ключей и без хардкода).
 
+Дополнительно: AI-ассистент (отвечает на любой свободный текст через OpenRouter),
+раздел новостей (RSS проверенного источника, по умолчанию РБК), постоянные нижние
+кнопки (Меню / Новости / Курсы / Помощь) и удаление всех своих данных в разделе
+«Помощь».
+
 ## Стек
 
 Python 3.12+, aiogram 3.x, aiosqlite (SQLite), httpx. Без Postgres/Alembic/Redis —
@@ -32,7 +37,10 @@ pytest -q
 ## Деплой на Railway
 
 1. Подключить репозиторий в Railway (New Project → Deploy from GitHub repo).
-2. В Variables задать `BOT_TOKEN` (и опционально `BASE_CURRENCY`).
+2. В Variables задать `BOT_TOKEN` (обязательно) и опционально `OPENROUTER_API_KEY`
+   для AI-ассистента (бесплатный ключ на openrouter.ai/keys), `BASE_CURRENCY`,
+   `NEWS_RSS_URL`. Без `OPENROUTER_API_KEY` бот работает, но на вопросы отвечает
+   подсказкой, что AI не подключён.
 3. **Обязательно** подключить persistent volume (Settings → Volumes), примонтировать
    например на `/data`, и задать `DB_PATH=/data/bot.db` в Variables — иначе база
    обнуляется при каждом редеплое (файловая система контейнера эфемерна).

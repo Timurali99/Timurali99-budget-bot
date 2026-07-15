@@ -72,6 +72,13 @@ class ExpenseRepository:
         await self._conn.commit()
         return cursor.rowcount > 0
 
+    async def delete_all(self, user_id: int) -> int:
+        cursor = await self._conn.execute(
+            "DELETE FROM expenses WHERE user_id = ?", (user_id,)
+        )
+        await self._conn.commit()
+        return cursor.rowcount
+
     async def get_last(self, user_id: int) -> Expense | None:
         self._conn.row_factory = aiosqlite.Row
         async with self._conn.execute(

@@ -34,6 +34,13 @@ class BudgetRepository:
             row = await cursor.fetchone()
         return _row_to_budget(row) if row else None
 
+    async def delete_all(self, user_id: int) -> int:
+        cursor = await self._conn.execute(
+            "DELETE FROM budget_limits WHERE user_id = ?", (user_id,)
+        )
+        await self._conn.commit()
+        return cursor.rowcount
+
     async def upsert_limit(
         self, user_id: int, category: str, limit_minor: int, updated_at: str
     ) -> None:

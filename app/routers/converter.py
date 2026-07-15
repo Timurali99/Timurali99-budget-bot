@@ -6,11 +6,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from app.fsm import ConverterStates
-from app.keyboards.common_kb import single_button_kb
+from app.keyboards.common_kb import BTN_RATES, single_button_kb
 from app.keyboards.converter_kb import pair_result_kb, pairs_kb
 from app.services.rates_service import RateUnavailableError, rates_service
 
 router = Router(name="converter")
+
+RATES_INTRO = "Выбери пару или введи свою — курс всегда берётся живьём из интернета:"
 
 CUSTOM_PAIR_RE = re.compile(r"^\s*(\d+(?:[.,]\d+)?)\s+([A-Za-z]{2,5})\s+([A-Za-z]{2,5})\s*$")
 PLAIN_AMOUNT_RE = re.compile(r"^\s*(\d+(?:[.,]\d+)?)\s*$")
@@ -24,13 +26,16 @@ async def _convert_and_format(amount: Decimal, from_ccy: str, to_ccy: str) -> st
     )
 
 
+@router.message(F.text == BTN_RATES)
+async def rate_from_button(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer(RATES_INTRO, reply_markup=pairs_kb())
+
+
 @router.callback_query(F.data == "rate:menu")
 async def rate_menu(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await callback.message.edit_text(
-        "Выбери пару или введи свою — курс всегда берётся живьём из интернета:",
-        reply_markup=pairs_kb(),
-    )
+    await callback.message.edit_text(RATES_INTRO, reply_markup=pairs_kb())
     await callback.answer()
 
 
