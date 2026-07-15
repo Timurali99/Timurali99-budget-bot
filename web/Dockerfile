@@ -1,5 +1,5 @@
 # Standalone image for the storefront site — a SEPARATE Railway service from the
-# bot. Railway's start command uses $PORT; keep it in sync if you change it.
+# bot. server.py reads $PORT itself, so no shell expansion is needed at start.
 FROM python:3.14-slim
 
 WORKDIR /app
@@ -9,5 +9,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Railway injects $PORT. Shell form so it expands.
-CMD uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}
+CMD ["python", "server.py"]

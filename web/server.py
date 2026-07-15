@@ -70,3 +70,11 @@ async def proxy(path: str, request: Request) -> Response:
 
 # Static frontend last, so /health, /config.json and /api/* win over the SPA.
 app.mount("/", StaticFiles(directory=os.path.join(HERE, "static"), html=True), name="static")
+
+
+if __name__ == "__main__":
+    # Read $PORT in Python rather than a shell-expanded start command: Railway
+    # runs the start command without shell `${PORT:-8080}` expansion.
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8080")))
