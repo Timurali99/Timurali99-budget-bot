@@ -1,92 +1,58 @@
 <!doctype html>
-<html lang="ru" data-theme="dark">
+<html lang="ru" data-mode="night">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ZAP.TUT — автозапчасти</title>
-  <meta name="description" content="Автозапчасти под ваш автомобиль. Подбор по марке, модели и поколению. Заказ прямо в Telegram.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+  <title>T&T Studio — каталог</title>
+  <meta name="description" content="T&T Studio — товары с историей и услуги под ключ: Telegram-боты, AI-ассистенты, автоматизация и веб-платформы.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='84'>∞</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;0,800;0,900;1,800&family=Noto+Sans+JP:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/">
-      <span class="brand-mark">ZAP<span>.TUT</span></span>
-      <span class="brand-sub">автозапчасти</span>
-    </a>
-    <div class="topbar-actions">
-      <a class="link-muted" id="channelLink" href="#" target="_blank" rel="noopener">Канал</a>
-      <button class="theme-toggle" id="themeToggle" aria-label="Сменить тему" title="Светлая / тёмная">🌙</button>
-      <a class="btn btn-primary" id="botCta" href="#" target="_blank" rel="noopener">Открыть бота</a>
-    </div>
-  </header>
+  <canvas id="glyphfield" aria-hidden="true"></canvas>
 
-  <section class="hero">
-    <div class="hero-inner">
-      <p class="eyebrow">Наличие в реальном времени</p>
-      <h1>Запчасть под ваш авто —<br><span class="accent">за пару кликов</span></h1>
-      <p class="lead">Подберите деталь по марке, модели и поколению. Заказ и вопросы — сразу в Telegram, без звонков.</p>
-
-      <form class="finder" id="finder" autocomplete="off">
-        <div class="finder-row">
-          <label class="field">
-            <span>Марка</span>
-            <select id="brandSel" disabled><option value="">Загрузка…</option></select>
-          </label>
-          <label class="field">
-            <span>Модель</span>
-            <select id="modelSel" disabled><option value="">Сначала марка</option></select>
-          </label>
-          <label class="field">
-            <span>Поколение</span>
-            <select id="genSel" disabled><option value="">Сначала модель</option></select>
-          </label>
-        </div>
-        <div class="finder-row finder-row--search">
-          <label class="field field--grow">
-            <span>Поиск по названию или артикулу</span>
-            <input type="search" id="searchInput" placeholder="Напр. «тормозные колодки» или «34116"…">
-          </label>
-          <button class="btn btn-primary btn-find" type="submit">Показать</button>
-        </div>
-      </form>
-    </div>
-  </section>
-
-  <main class="catalog">
-    <div class="catalog-head">
-      <h2 id="catalogTitle">Каталог</h2>
-      <span class="count" id="resultCount"></span>
-    </div>
-
-    <div class="grid" id="grid" aria-live="polite"></div>
-
-    <div class="state" id="stateBox" hidden>
-      <div class="state-emoji" id="stateEmoji">🧰</div>
-      <p class="state-title" id="stateTitle"></p>
-      <p class="state-sub" id="stateSub"></p>
-      <div class="state-actions" id="stateActions"></div>
-    </div>
-
-    <div class="more" id="moreWrap" hidden>
-      <button class="btn btn-ghost" id="moreBtn">Показать ещё</button>
-    </div>
-  </main>
-
-  <footer class="footer">
-    <div class="footer-inner">
-      <div>
-        <span class="brand-mark small">ZAP<span>.TUT</span></span>
-        <p class="muted">Автозапчасти. Подбор и заказ через Telegram.</p>
+  <div class="wrap">
+    <header class="site-head">
+      <button class="cart" id="cartBtn" aria-label="Корзина">
+        🛒<span class="cart-count" id="cartCount" hidden>0</span>
+      </button>
+      <div class="logo" aria-label="T&T Studio">
+        <span>T</span><span class="inf">∞</span><span>T</span>
+        <span class="logo-word">STUDIO</span>
       </div>
-      <nav class="footer-links">
-        <a id="footChannel" href="#" target="_blank" rel="noopener">Telegram-канал</a>
-        <a id="footManager" href="#" target="_blank" rel="noopener">Написать менеджеру</a>
-        <a id="footBot" href="#" target="_blank" rel="noopener">Бот заказов</a>
-      </nav>
+    </header>
+
+    <div class="switch" role="tablist" aria-label="Товары или услуги">
+      <button class="switch-half" id="halfGoods" role="tab" aria-selected="false">
+        <span class="kj">昼</span> ТОВАРЫ
+      </button>
+      <button class="switch-half" id="halfServices" role="tab" aria-selected="true">
+        <span class="kj">夜</span> УСЛУГИ
+      </button>
     </div>
-    <p class="footer-fine muted">Наличие и цены обновляются из каталога магазина.</p>
-  </footer>
+
+    <main class="stage">
+      <div class="stage-head">
+        <p class="eyebrow"><span class="kj" id="eyebrowKj">道</span>
+          <span class="tag" id="eyebrowTag">РАЗРАБОТКА</span></p>
+        <h1 id="stageTitle">Технологии,<br>что работают<br>на бизнес</h1>
+        <p class="lead" id="stageLead">Telegram-боты, AI-ассистенты, автоматизация и веб-платформы под ключ.</p>
+      </div>
+
+      <div class="cards" id="cards"></div>
+    </main>
+
+    <footer class="site-foot">
+      <div class="logo small"><span>T</span><span class="inf">∞</span><span>T</span><span class="logo-word">STUDIO</span></div>
+      <nav class="foot-links">
+        <a id="footChannel" href="#" target="_blank" rel="noopener">Telegram-канал</a>
+        <a id="footManager" href="#" target="_blank" rel="noopener">Написать нам</a>
+      </nav>
+    </footer>
+  </div>
 
   <script src="/app.js"></script>
 </body>

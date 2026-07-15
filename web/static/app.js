@@ -1,242 +1,164 @@
 "use strict";
 
-// The Catalog API is reached only through this site's own /api/proxy/* (see
-// server.py) — same origin, so no CORS, and a sleeping upstream degrades to an
-// offline state instead of a broken page. Product/brand field names are
-// normalized defensively because the upstream shape can vary.
+// T&T Studio catalog: a day/night switch flips both the theme and the content
+// (товары ⇄ услуги). Product/service data is static; card photos come from a
+// keyword image source with the original emoji as a graceful fallback.
 
-const PROXY = "/api/proxy";
-const PAGE = 12;
+const MODES = {
+  night: {
+    theme: "night", tabTitle: "услуги",
+    eyebrowKj: "道", tag: "РАЗРАБОТКА",
+    title: "Технологии,<br>что работают<br>на бизнес",
+    lead: "Telegram-боты, AI-ассистенты, автоматизация и веб-платформы под ключ.",
+    order: "Заказать",
+    items: [
+      { t: "Telegram Bot + AI", m: "15 дней", p: 45000, from: true, kj: "術", e: "🤖", q: "robot,technology" },
+      { t: "Mini App / каталог", m: "20 дней", p: 60000, from: true, kj: "網", e: "📱", q: "smartphone,app" },
+      { t: "CRM · автоматизация", m: "18 дней", p: 55000, from: true, kj: "録", e: "⚙️", q: "dashboard,technology" },
+      { t: "Сайт / платформа", m: "25 дней", p: 90000, from: true, kj: "道", e: "🌐", q: "website,code" },
+      { t: "AI-ассистент под задачу", m: "12 дней", p: 35000, from: true, kj: "知", e: "🧠", q: "neural,network" },
+      { t: "Интеграции / API", m: "10 дней", p: 30000, from: true, kj: "系", e: "🔗", q: "network,server" },
+    ],
+  },
+  day: {
+    theme: "day", tabTitle: "товары",
+    eyebrowKj: "匠", tag: "МАСТЕРСКАЯ",
+    title: "Вещи с<br>историей и<br>характером",
+    lead: "Ручная работа, кожа, техника и детали — то, что можно купить прямо сейчас.",
+    order: "Купить",
+    items: [
+      { t: "Картхолдер Crazy Horse", m: "Кожа · Тиснение", p: 5000, kj: "財", e: "👜", q: "leather,wallet" },
+      { t: "MacBook Air M2", m: "Б/У · Идеал", p: 78000, kj: "機", e: "💻", q: "macbook,laptop" },
+      { t: "Тормозные колодки Bosch", m: "Новое · В наличии", p: 3200, kj: "車", e: "🚗", q: "car,brake" },
+      { t: "Ремешок кожаный", m: "Ручная работа", p: 2400, kj: "時", e: "⌚", q: "watch,leather" },
+      { t: "Кошелёк ручной работы", m: "Кожа · На заказ", p: 3500, kj: "鞄", e: "👛", q: "purse,leather" },
+      { t: "iPhone (б/у)", m: "Б/У · Идеал", p: 45000, kj: "電", e: "📱", q: "iphone,phone" },
+    ],
+  },
+};
 
 const el = (id) => document.getElementById(id);
-const grid = el("grid");
-const stateBox = el("stateBox");
-const moreWrap = el("moreWrap");
-
+const money = (n) => n.toLocaleString("ru-RU");
 let cfg = { botUsername: "", channelUsername: "zap_tut", managerUsername: "Temurali_aliev" };
-let offset = 0;
-let lastFilters = {};
-let loadedItems = [];
+let cart = 0;
 
-// ---------- links / config ----------
-const tme = (handle, payload) => {
-  const h = (handle || "").replace(/^@/, "");
-  if (!h) return null;
-  return payload ? `https://t.me/${h}?start=${payload}` : `https://t.me/${h}`;
+const tme = (h, payload) => {
+  const u = (h || "").replace(/^@/, "");
+  if (!u) return null;
+  return payload ? `https://t.me/${u}?start=${payload}` : `https://t.me/${u}`;
 };
+const orderLink = () => tme(cfg.botUsername, "order") || tme(cfg.managerUsername) || "#";
 
 async function loadConfig() {
   try {
     const r = await fetch("/config.json");
     if (r.ok) cfg = { ...cfg, ...(await r.json()) };
-  } catch (_) { /* defaults are fine */ }
-
-  const botOrChannel = tme(cfg.botUsername, "catalog") || tme(cfg.channelUsername);
-  const channel = tme(cfg.channelUsername);
-  const manager = tme(cfg.managerUsername);
-
-  setHref("botCta", botOrChannel);
-  setHref("channelLink", channel);
-  setHref("footChannel", channel);
-  setHref("footManager", manager);
-  setHref("footBot", tme(cfg.botUsername, "catalog") || manager);
+  } catch (_) { /* defaults */ }
+  const ch = tme(cfg.channelUsername), mg = tme(cfg.managerUsername);
+  if (ch) el("footChannel").href = ch;
+  if (mg) el("footManager").href = mg;
 }
 
-function setHref(id, href) {
-  const node = el(id);
-  if (!node) return;
-  if (href) { node.href = href; node.hidden = false; }
-  else { node.hidden = true; }
-}
+// ---------- render ----------
+function render(modeKey) {
+  const M = MODES[modeKey];
+  document.documentElement.setAttribute("data-mode", modeKey);
+  el("halfGoods").setAttribute("aria-selected", String(modeKey === "day"));
+  el("halfServices").setAttribute("aria-selected", String(modeKey === "night"));
+  el("eyebrowKj").textContent = M.eyebrowKj;
+  el("eyebrowTag").textContent = M.tag;
+  el("stageTitle").innerHTML = M.title;
+  el("stageLead").textContent = M.lead;
 
-// buy button target: prefer the order bot deep-link, fall back to messaging the manager
-function orderLink(productId) {
-  return tme(cfg.botUsername, `buy_${productId}`) || tme(cfg.managerUsername);
-}
-
-// ---------- theme ----------
-function initTheme() {
-  const saved = localStorage.getItem("theme");
-  const initial = saved || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-  applyTheme(initial);
-  el("themeToggle").addEventListener("click", () => {
-    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    applyTheme(next);
-    localStorage.setItem("theme", next);
-  });
-}
-function applyTheme(t) {
-  document.documentElement.setAttribute("data-theme", t);
-  el("themeToggle").textContent = t === "dark" ? "🌙" : "☀️";
-}
-
-// ---------- catalog api ----------
-async function api(path) {
-  const r = await fetch(`${PROXY}/${path}`);
-  if (!r.ok) throw new Error(`upstream ${r.status}`);
-  return r.json();
-}
-const asList = (data) => Array.isArray(data) ? data : (data && (data.items || data.results || data.data)) || [];
-
-function pName(x) { return x.title || x.name || x.label || "—"; }
-function pId(x) { return x.id ?? x.uuid ?? x.pk; }
-
-// ---------- filters (brand -> model -> generation) ----------
-async function loadBrands() {
-  const sel = el("brandSel");
-  try {
-    const brands = asList(await api("api/catalog/brands"));
-    fillSelect(sel, brands, "Все марки");
-    sel.disabled = brands.length === 0;
-  } catch (_) {
-    sel.innerHTML = '<option value="">Марки недоступны</option>';
-  }
-}
-function fillSelect(sel, items, placeholder) {
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    items.map((it) => `<option value="${pId(it)}">${escapeHtml(pName(it))}</option>`).join("");
-  sel.disabled = false;
-}
-
-async function onBrand() {
-  const id = el("brandSel").value;
-  const model = el("modelSel"), gen = el("genSel");
-  resetSelect(model, "Все модели"); resetSelect(gen, "Сначала модель"); gen.disabled = true;
-  if (!id) { model.disabled = true; return; }
-  try { fillSelect(model, asList(await api(`brands/${id}/models`)), "Все модели"); }
-  catch (_) { model.disabled = true; }
-}
-async function onModel() {
-  const id = el("modelSel").value;
-  const gen = el("genSel");
-  resetSelect(gen, "Все поколения");
-  if (!id) { gen.disabled = true; return; }
-  try { fillSelect(gen, asList(await api(`models/${id}/generations`)), "Все поколения"); }
-  catch (_) { gen.disabled = true; }
-}
-function resetSelect(sel, placeholder) { sel.innerHTML = `<option value="">${placeholder}</option>`; }
-
-// ---------- products ----------
-function currentFilters() {
-  const f = {};
-  const model = el("modelSel").value;
-  if (model) f.car_model_id = model;
-  const q = el("searchInput").value.trim();
-  if (q) f.q = q;
-  return f;
-}
-
-async function runSearch(reset = true) {
-  if (reset) { offset = 0; loadedItems = []; lastFilters = currentFilters(); }
-  showSkeletons(reset);
-  hideState();
-
-  const params = new URLSearchParams({ limit: String(PAGE), offset: String(offset) });
-  if (lastFilters.car_model_id) params.set("car_model_id", lastFilters.car_model_id);
-
-  let items;
-  try {
-    items = asList(await api(`products?${params.toString()}`));
-  } catch (_) {
-    if (reset) showOffline();
-    return;
-  }
-
-  // upstream has no text search param — filter the page client-side by name/article
-  if (lastFilters.q) {
-    const q = lastFilters.q.toLowerCase();
-    items = items.filter((p) => `${pName(p)} ${p.article || ""}`.toLowerCase().includes(q));
-  }
-
-  loadedItems = reset ? items : loadedItems.concat(items);
-  renderProducts(loadedItems);
-  moreWrap.hidden = items.length < PAGE;
-  offset += PAGE;
-
-  if (!loadedItems.length) showEmpty();
-  el("resultCount").textContent = loadedItems.length ? `${loadedItems.length}${items.length === PAGE ? "+" : ""} шт.` : "";
-}
-
-function renderProducts(items) {
-  el("catalogTitle").textContent = lastFilters.q ? `Поиск: «${lastFilters.q}»` : "Каталог";
-  grid.innerHTML = items.map(cardHtml).join("");
-}
-
-function cardHtml(p) {
-  const id = pId(p);
-  const available = Number(p.stock_available ?? p.available ?? p.stock ?? 0);
-  const inStock = available > 0 || p.status === "ACTIVE" && p.stock_available == null;
-  const price = p.price != null && p.price !== "" ? Number(p.price) : null;
-  const cur = p.currency || "RUB";
-  const badge = available > 0
-    ? `<span class="badge">в наличии${available <= 5 ? ` · ${available} шт` : ""}</span>`
-    : (p.stock_available != null ? `<span class="badge out">под заказ</span>` : "");
-  return `<article class="card">
-    <div class="card-photo">
-      <img loading="lazy" src="${PROXY}/products/${id}/photo" alt="${escapeHtml(pName(p))}"
-           onerror="this.remove();this.parentNode.insertAdjacentHTML('beforeend','<span class=&quot;ph&quot;>🔧</span>')">
-      ${badge}
-    </div>
-    <div class="card-body">
-      <div class="card-title">${escapeHtml(pName(p))}</div>
-      ${p.article ? `<div class="card-meta">арт. ${escapeHtml(String(p.article))}</div>` : ""}
-      <div class="card-spacer"></div>
-      <div class="price">${price != null
-        ? `<span class="now">${fmtMoney(price)}</span><span class="cur">${curSymbol(cur)}</span>`
-        : `<span class="none">Цена по запросу</span>`}</div>
-      <div class="card-actions">
-        <a class="btn btn-primary" target="_blank" rel="noopener" href="${orderLink(id)}">Заказать</a>
-        <a class="btn" target="_blank" rel="noopener" href="${tme(cfg.managerUsername)}">Написать</a>
+  el("cards").innerHTML = M.items.map((it) => {
+    const price = it.from
+      ? `<span class="from">от</span>${money(it.p)}<span class="rub">₽</span>`
+      : `${money(it.p)}<span class="rub">₽</span>`;
+    const img = `https://loremflickr.com/240/240/${it.q}`;
+    return `<article class="card">
+      <span class="card-kj">${it.kj}</span>
+      <div class="card-photo">
+        <img src="${img}" alt="${escapeHtml(it.t)}" loading="lazy"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'emoji',textContent:'${it.e}'}))">
       </div>
-    </div>
-  </article>`;
+      <h3 class="card-title">${escapeHtml(it.t)}</h3>
+      <p class="card-meta">${escapeHtml(it.m)}</p>
+      <div class="price">${price}</div>
+      <div class="card-actions">
+        <button class="plus" aria-label="Добавить в корзину">+</button>
+        <a class="order" href="${orderLink()}" target="_blank" rel="noopener">${M.order}</a>
+      </div>
+    </article>`;
+  }).join("");
+
+  glyphColor = getComputedStyle(document.documentElement).getPropertyValue("--glyph").trim() || "255,47,61";
 }
 
-// ---------- states ----------
-function showSkeletons(reset) {
-  if (!reset) return;
-  el("resultCount").textContent = "";
-  grid.innerHTML = Array.from({ length: 8 }).map(() =>
-    `<article class="card skeleton"><div class="card-photo"></div>
-     <div class="card-body"><div class="sk-line w60"></div><div class="sk-line w40"></div>
-     <div class="card-spacer"></div><div class="sk-line w40"></div></div></article>`).join("");
-}
-function hideState() { stateBox.hidden = true; }
-function showState(emoji, title, sub, actions) {
-  grid.innerHTML = ""; moreWrap.hidden = true;
-  el("stateEmoji").textContent = emoji;
-  el("stateTitle").textContent = title;
-  el("stateSub").textContent = sub;
-  el("stateActions").innerHTML = actions;
-  stateBox.hidden = false;
-}
-function showOffline() {
-  showState("🛠️", "Каталог сейчас обновляется",
-    "Витрина временно не отвечает. Напишите нам в Telegram — подберём деталь вручную и ответим по наличию.",
-    `<a class="btn btn-primary" target="_blank" rel="noopener" href="${tme(cfg.managerUsername)}">Написать менеджеру</a>
-     <a class="btn" target="_blank" rel="noopener" href="${tme(cfg.channelUsername)}">Открыть канал</a>`);
-}
-function showEmpty() {
-  showState("🔍", "Ничего не нашли",
-    "По этому запросу товаров нет. Попробуйте другую марку/модель или напишите нам — найдём под заказ.",
-    `<a class="btn btn-primary" target="_blank" rel="noopener" href="${tme(cfg.managerUsername)}">Спросить менеджера</a>`);
-}
-
-// ---------- utils ----------
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
-function fmtMoney(n) { return n.toLocaleString("ru-RU", { maximumFractionDigits: 0 }); }
-function curSymbol(c) { return ({ RUB: "₽", USD: "$", EUR: "€", KZT: "₸" }[c]) || c; }
+
+// ---------- cart ----------
+function bumpCart() {
+  cart += 1;
+  const c = el("cartCount");
+  c.textContent = String(cart);
+  c.hidden = false;
+}
+document.addEventListener("click", (e) => {
+  if (e.target.closest(".plus")) { e.preventDefault(); bumpCart(); }
+  else if (e.target.closest(".order")) { bumpCart(); }
+});
+el("cartBtn").addEventListener("click", () => {
+  const mg = tme(cfg.managerUsername);
+  if (cart > 0 && mg) window.open(mg, "_blank", "noopener");
+});
+
+// ---------- switch ----------
+el("halfGoods").addEventListener("click", () => render("day"));
+el("halfServices").addEventListener("click", () => render("night"));
+
+// ---------- moving hieroglyph background ----------
+const POOL = "道令号変信起能言系術網録知財機車時電匠手品心価導礼義知徳華宝".split("");
+const cv = el("glyphfield"), ctx = cv.getContext("2d");
+let glyphColor = "255,47,61";
+let glyphs = [];
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function sizeCanvas() {
+  cv.width = innerWidth * devicePixelRatio;
+  cv.height = innerHeight * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+function seedGlyphs() {
+  const n = Math.max(16, Math.round(innerWidth / 60));
+  glyphs = Array.from({ length: n }, () => ({
+    ch: POOL[(Math.random() * POOL.length) | 0],
+    x: Math.random() * innerWidth,
+    y: Math.random() * innerHeight,
+    size: 24 + Math.random() * 64,
+    vx: (Math.random() - 0.5) * 0.28,
+    vy: (Math.random() - 0.5) * 0.28,
+    a: 0.04 + Math.random() * 0.09,
+  }));
+}
+function drawGlyphs() {
+  ctx.clearRect(0, 0, innerWidth, innerHeight);
+  for (const g of glyphs) {
+    g.x += g.vx; g.y += g.vy;
+    const pad = g.size;
+    if (g.x < -pad) g.x = innerWidth + pad; if (g.x > innerWidth + pad) g.x = -pad;
+    if (g.y < -pad) g.y = innerHeight + pad; if (g.y > innerHeight + pad) g.y = -pad;
+    ctx.font = `700 ${g.size}px "Noto Sans JP","Hiragino Sans",sans-serif`;
+    ctx.fillStyle = `rgba(${glyphColor},${g.a})`;
+    ctx.fillText(g.ch, g.x, g.y);
+  }
+  if (!reduce) requestAnimationFrame(drawGlyphs);
+}
+addEventListener("resize", () => { sizeCanvas(); seedGlyphs(); if (reduce) drawGlyphs(); });
 
 // ---------- boot ----------
-initTheme();
-loadConfig();
-loadBrands();
-runSearch(true);
-
-el("brandSel").addEventListener("change", onBrand);
-el("modelSel").addEventListener("change", onModel);
-el("finder").addEventListener("submit", (e) => { e.preventDefault(); runSearch(true); });
-el("moreBtn").addEventListener("click", () => runSearch(false));
+const startMode = (() => { const h = new Date().getHours(); return h >= 7 && h < 19 ? "day" : "night"; })();
+loadConfig().then(() => render(startMode));
+render(startMode);
+sizeCanvas(); seedGlyphs(); drawGlyphs();
