@@ -1,12 +1,12 @@
 "use strict";
 
-// T&T Studio catalog: a day/night switch flips both the theme and the content
-// (товары ⇄ услуги). Product/service data is static; card photos come from a
-// keyword image source with the original emoji as a graceful fallback.
+// T&T Studio catalog: a day/night switch flips both theme and content
+// (товары ⇄ услуги). Static data; card photos come from a keyword image source
+// with a unifying premium treatment and the original emoji as a fallback.
 
 const MODES = {
   night: {
-    theme: "night", tabTitle: "услуги",
+    tabTitle: "услуги",
     eyebrowKj: "道", tag: "РАЗРАБОТКА",
     title: "Технологии,<br>что работают<br>на бизнес",
     lead: "Telegram-боты, AI-ассистенты, автоматизация и веб-платформы под ключ.",
@@ -18,10 +18,13 @@ const MODES = {
       { t: "Сайт / платформа", m: "25 дней", p: 90000, from: true, kj: "道", e: "🌐", q: "website,code" },
       { t: "AI-ассистент под задачу", m: "12 дней", p: 35000, from: true, kj: "知", e: "🧠", q: "neural,network" },
       { t: "Интеграции / API", m: "10 дней", p: 30000, from: true, kj: "系", e: "🔗", q: "network,server" },
+      { t: "Чат-бот поддержки", m: "14 дней", p: 40000, from: true, kj: "助", e: "💬", q: "chat,support" },
+      { t: "Лендинг под запуск", m: "8 дней", p: 25000, from: true, kj: "昇", e: "🚀", q: "startup,launch" },
+      { t: "Автоворонки продаж", m: "16 дней", p: 50000, from: true, kj: "財", e: "📈", q: "analytics,growth" },
     ],
   },
   day: {
-    theme: "day", tabTitle: "товары",
+    tabTitle: "товары",
     eyebrowKj: "匠", tag: "МАСТЕРСКАЯ",
     title: "Вещи с<br>историей и<br>характером",
     lead: "Ручная работа, кожа, техника и детали — то, что можно купить прямо сейчас.",
@@ -32,14 +35,17 @@ const MODES = {
       { t: "Тормозные колодки Bosch", m: "Новое · В наличии", p: 3200, kj: "車", e: "🚗", q: "car,brake" },
       { t: "Ремешок кожаный", m: "Ручная работа", p: 2400, kj: "時", e: "⌚", q: "watch,leather" },
       { t: "Кошелёк ручной работы", m: "Кожа · На заказ", p: 3500, kj: "鞄", e: "👛", q: "purse,leather" },
-      { t: "iPhone (б/у)", m: "Б/У · Идеал", p: 45000, kj: "電", e: "📱", q: "iphone,phone" },
+      { t: "iPhone 13 (б/у)", m: "Б/У · Идеал", p: 45000, kj: "電", e: "📱", q: "iphone,phone" },
+      { t: "Наушники беспроводные", m: "Новое", p: 12000, kj: "音", e: "🎧", q: "headphones,audio" },
+      { t: "Механическая клавиатура", m: "Custom", p: 9500, kj: "鍵", e: "⌨️", q: "keyboard,mechanical" },
+      { t: "Рюкзак кожаный", m: "Ручная работа", p: 8000, kj: "包", e: "🎒", q: "leather,bag" },
     ],
   },
 };
 
 const el = (id) => document.getElementById(id);
 const money = (n) => n.toLocaleString("ru-RU");
-let cfg = { botUsername: "", channelUsername: "zap_tut", managerUsername: "Temurali_aliev" };
+let cfg = { botUsername: "", channelUsername: "AITimPromptsLab", managerUsername: "Temurali_aliev" };
 let cart = 0;
 
 const tme = (h, payload) => {
@@ -74,19 +80,22 @@ function render(modeKey) {
     const price = it.from
       ? `<span class="from">от</span>${money(it.p)}<span class="rub">₽</span>`
       : `${money(it.p)}<span class="rub">₽</span>`;
-    const img = `https://loremflickr.com/240/240/${it.q}`;
+    const img = `https://loremflickr.com/600/450/${it.q}`;
     return `<article class="card">
-      <span class="card-kj">${it.kj}</span>
-      <div class="card-photo">
+      <div class="card-media">
         <img src="${img}" alt="${escapeHtml(it.t)}" loading="lazy"
-             onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'emoji',textContent:'${it.e}'}))">
+             onerror="this.closest('.card-media').classList.add('noimg');this.remove()">
+        <span class="media-emoji">${it.e}</span>
+        <span class="card-kj">${it.kj}</span>
       </div>
-      <h3 class="card-title">${escapeHtml(it.t)}</h3>
-      <p class="card-meta">${escapeHtml(it.m)}</p>
-      <div class="price">${price}</div>
-      <div class="card-actions">
-        <button class="plus" aria-label="Добавить в корзину">+</button>
-        <a class="order" href="${orderLink()}" target="_blank" rel="noopener">${M.order}</a>
+      <div class="card-info">
+        <h3 class="card-title">${escapeHtml(it.t)}</h3>
+        <p class="card-meta">${escapeHtml(it.m)}</p>
+        <div class="price">${price}</div>
+        <div class="card-actions">
+          <button class="plus" aria-label="Добавить в корзину">+</button>
+          <a class="order" href="${orderLink()}" target="_blank" rel="noopener">${M.order}</a>
+        </div>
       </div>
     </article>`;
   }).join("");
@@ -119,7 +128,7 @@ el("halfGoods").addEventListener("click", () => render("day"));
 el("halfServices").addEventListener("click", () => render("night"));
 
 // ---------- moving hieroglyph background ----------
-const POOL = "道令号変信起能言系術網録知財機車時電匠手品心価導礼義知徳華宝".split("");
+const POOL = "道令号変信起能言系術網録知財機車時電匠手品心価導礼義徳華宝助昇音鍵包".split("");
 const cv = el("glyphfield"), ctx = cv.getContext("2d");
 let glyphColor = "255,47,61";
 let glyphs = [];
@@ -131,15 +140,15 @@ function sizeCanvas() {
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 }
 function seedGlyphs() {
-  const n = Math.max(16, Math.round(innerWidth / 60));
+  const n = Math.max(14, Math.round(innerWidth / 70));
   glyphs = Array.from({ length: n }, () => ({
     ch: POOL[(Math.random() * POOL.length) | 0],
     x: Math.random() * innerWidth,
     y: Math.random() * innerHeight,
-    size: 24 + Math.random() * 64,
-    vx: (Math.random() - 0.5) * 0.28,
-    vy: (Math.random() - 0.5) * 0.28,
-    a: 0.04 + Math.random() * 0.09,
+    size: 26 + Math.random() * 68,
+    vx: (Math.random() - 0.5) * 0.25,
+    vy: (Math.random() - 0.5) * 0.25,
+    a: 0.04 + Math.random() * 0.08,
   }));
 }
 function drawGlyphs() {

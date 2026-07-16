@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 # the Telegram links (bot / manager / channel) are set in Railway Variables
 # rather than baked into the built assets.
 BOT_USERNAME = os.getenv("SITE_BOT_USERNAME", "").lstrip("@")
-CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@zap_tut").lstrip("@")
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "AITimPromptsLab").lstrip("@")
 MANAGER_USERNAME = os.getenv("MANAGER_USERNAME", "Temurali_aliev").lstrip("@")
 
 HERE = os.path.dirname(__file__)
